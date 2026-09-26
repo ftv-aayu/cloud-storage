@@ -10,6 +10,9 @@
     position: sticky;
     top: 0;
     z-index: 500;
+    /* prevent navbar from ever being wider than viewport */
+    max-width: 100vw;
+    overflow: hidden;
 }
 
 .logo {
@@ -18,14 +21,15 @@
     color: var(--text-heading);
     text-decoration: none;
     white-space: nowrap;
-    /* give it a touch-friendly hit area */
     padding: 8px 0;
+    flex-shrink: 0;
 }
 
 .links {
     display: flex;
     align-items: center;
     gap: 4px;
+    flex-shrink: 0;
 }
 
 /* Base link */
@@ -39,8 +43,8 @@
     color: var(--text-muted);
     text-decoration: none;
     transition: color 0.15s ease, background 0.15s ease;
-    /* minimum touch target */
     min-height: 44px;
+    white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -60,18 +64,20 @@
     background: var(--bg-accent-light);
 }
 
-/* Mobile: tighter padding, full-width hit area feel */
+/* Mobile: tighter padding */
 @media (max-width: 480px) {
     .navbar {
-        padding: 0 14px;
+        padding: 0 12px;
+        gap: 4px;
     }
 
     .logo {
-        font-size: 17px;
+        font-size: 16px;
     }
 
     .nav-link {
-        padding: 10px 14px;
-        font-size: 14px;
+        padding: 8px 10px;
+        font-size: 13px;
+        min-height: 40px;
     }
 }
