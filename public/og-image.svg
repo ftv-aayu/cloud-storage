@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0057d9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#003a99;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+
+  <!-- Decorative circles -->
+  <circle cx="1100" cy="80"  r="160" fill="#ffffff" fill-opacity="0.04" />
+  <circle cx="100"  cy="560" r="200" fill="#ffffff" fill-opacity="0.04" />
+
+  <!-- Cloud icon (scaled up, centered) -->
+  <g transform="translate(480, 140) scale(3.6)">
+    <rect width="64" height="64" rx="14" fill="#007bff"/>
+    <path
+      d="M46 38a8 8 0 0 0-1.2-15.9A12 12 0 0 0 21 26a7 7 0 0 0 1 13.9"
+      fill="none"
+      stroke="white"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <line x1="32" y1="44" x2="32" y2="30" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <polyline points="26,36 32,30 38,36" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Title -->
+  <text
+    x="600" y="430"
+    font-family="'Segoe UI', Arial, sans-serif"
+    font-size="72"
+    font-weight="700"
+    fill="#ffffff"
+    text-anchor="middle"
+    letter-spacing="1"
+  >Cloud Storage</text>
+
+  <!-- Subtitle -->
+  <text
+    x="600" y="510"
+    font-family="'Segoe UI', Arial, sans-serif"
+    font-size="32"
+    fill="#a8c8ff"
+    text-anchor="middle"
+    letter-spacing="0.5"
+  >Free. Fast. Simple.</text>
+
+  <!-- URL -->
+  <text
+    x="600" y="580"
+    font-family="'Segoe UI', Arial, sans-serif"
+    font-size="24"
+    fill="#6aa3ff"
+    text-anchor="middle"
+  >deep-bkl.web.app</text>
+</svg>
