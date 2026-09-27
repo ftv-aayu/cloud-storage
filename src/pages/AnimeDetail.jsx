@@ -174,18 +174,39 @@ export default function AnimeDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState(null);
     const [tab, setTab]         = useState("Info");
+    const [apLink, setApLink]   = useState(null); // AnimParadise slug if found
 
     useEffect(() => {
         setLoading(true);
         setError(null);
         setData(null);
+        setApLink(null);
 
         fetch(`${PROXY}/anime?id=${encodeURIComponent(id)}`)
             .then(r => {
                 if (!r.ok) throw new Error(`${r.status}`);
                 return r.text();
             })
-            .then(html => setData(parseAnimeDetail(html)))
+            .then(html => {
+                const parsed = parseAnimeDetail(html);
+                setData(parsed);
+
+                // Search AP for the same title to find a cross-link
+                if (parsed.title) {
+                    fetch(`${PROXY}/ap/search?q=${encodeURIComponent(parsed.title)}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(apData => {
+                            const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+                            const match = (apData?.data ?? []).find(item => {
+                                const apTitle = item.alternativeTitle?.english || item.title || "";
+                                return norm(apTitle).includes(norm(parsed.title)) ||
+                                       norm(parsed.title).includes(norm(apTitle));
+                            });
+                            if (match) setApLink(match.link);
+                        })
+                        .catch(() => {});
+                }
+            })
             .catch(err => setError("Failed to load anime details."))
             .finally(() => setLoading(false));
     }, [id]);
@@ -207,6 +228,22 @@ export default function AnimeDetail() {
     return (
         <div className="page">
             <Link to="/anime" className="detail-back">← Back to search</Link>
+
+            {/* Cross-link to alternative source — shown when available */}
+            {apLink && (
+                <Link
+                    to={`/animep/${apLink}`}
+                    style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        margin: "8px 0 4px", padding: "5px 12px",
+                        background: "#1e1b4b", border: "1px solid #7c3aed",
+                        borderRadius: 8, fontSize: 13, color: "#a78bfa",
+                        fontWeight: 600, textDecoration: "none",
+                    }}
+                >
+                    ✨ More episodes available →
+                </Link>
+            )}
 
             {/* Tab bar */}
             <div className="detail-tabs">

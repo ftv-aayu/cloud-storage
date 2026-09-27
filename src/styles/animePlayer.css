@@ -141,3 +141,19 @@
         max-height: calc(100vh - 90px);
     }
 }
+
+/* ── Quality selector ── */
+.quality-select {
+    background: #1a1a2e;
+    border: 1px solid #3b99ff;
+    color: #3b99ff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    outline: none;
+    transition: background 0.15s;
+}
+.quality-select:hover { background: #222244; }
+.quality-select option { background: #111; color: #e0e0e0; }

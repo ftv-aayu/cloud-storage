@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
+import Hls from "hls.js";
 import { useWatchRoom } from "../hooks/useWatchRoom";
 import { useWebRTC } from "../hooks/useWebRTC";
+import { STICKER_GROUPS, GENSHIN_STICKERS } from "../utils/genshinStickers";
 import "../styles/watchRoom.css";
 
 const PROXY = import.meta.env.VITE_ANIME_PROXY || "http://localhost:3001";
@@ -78,11 +80,14 @@ function ChatMessage({ msg, myId }) {
 export default function WatchRoom() {
     const { roomId } = useParams();
     const [searchParams] = useSearchParams();
-    const animeId = searchParams.get("animeId");
-    const gateId  = searchParams.get("gateId");
+    const animeId   = searchParams.get("animeId");
+    const gateId    = searchParams.get("gateId");
     const animeName = searchParams.get("name") || "Anime";
+    const source    = searchParams.get("source") || "ah"; // "ah" or "ap"
+    const origin    = searchParams.get("origin") || "";
 
     const videoRef = useRef(null);
+    const hlsRef   = useRef(null);
 
     const {
         myId, messages, roomState, peers,
@@ -103,6 +108,8 @@ export default function WatchRoom() {
     // Chat UI state
     const [text, setText]               = useState("");
     const [showEmoji, setShowEmoji]     = useState(false);
+    const [showStickers, setShowStickers] = useState(false);
+    const [stickerChar, setStickerChar] = useState(STICKER_GROUPS[0]?.character ?? "");
     const [chatOpen, setChatOpen]       = useState(true);
     const [copied, setCopied]           = useState(false);
     const messagesEndRef                = useRef(null);
@@ -113,16 +120,58 @@ export default function WatchRoom() {
         setVideoLoading(true);
         setVideoError(null);
 
-        fetch(`${PROXY}/watch?id=${encodeURIComponent(gateId)}`)
-            .then(r => r.ok ? r.json() : Promise.reject(r.status))
-            .then(data => {
-                if (!data.videoUrl) throw new Error("No URL");
-                setStreamUrl(`${PROXY}/stream?url=${encodeURIComponent(data.videoUrl)}`);
+        const loadVideo = async () => {
+            try {
+                if (source === "ap") {
+                    // AnimParadise: get streamLink → HLS
+                    const data = await fetch(
+                        `${PROXY}/ap/stream?uid=${encodeURIComponent(gateId)}&origin=${encodeURIComponent(origin)}`
+                    ).then(r => r.ok ? r.json() : Promise.reject(r.status));
+
+                    if (!data.streamLink) throw new Error("No stream link");
+
+                    const m3u8Url = `https://stream.animeparadise.moe/m3u8?url=${encodeURIComponent(data.streamLink)}`;
+
+                    // Attach HLS.js
+                    if (hlsRef.current) hlsRef.current.destroy();
+                    if (Hls.isSupported()) {
+                        const hls = new Hls({ enableWorker: true });
+                        hls.loadSource(m3u8Url);
+                        hls.attachMedia(videoRef.current);
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            videoRef.current?.play().catch(() => {});
+                        });
+                        hls.on(Hls.Events.ERROR, (_e, d) => {
+                            if (d.fatal) setVideoError("Stream error.");
+                        });
+                        hlsRef.current = hls;
+                    } else if (videoRef.current?.canPlayType("application/vnd.apple.mpegurl")) {
+                        videoRef.current.src = m3u8Url;
+                    }
+                    setStreamUrl(m3u8Url); // for sync tracking
+                } else {
+                    // AnimeHeaven: mp4 via proxy stream
+                    const data = await fetch(
+                        `${PROXY}/watch?id=${encodeURIComponent(gateId)}`
+                    ).then(r => r.ok ? r.json() : Promise.reject(r.status));
+
+                    if (!data.videoUrl) throw new Error("No URL");
+                    const url = `${PROXY}/stream?url=${encodeURIComponent(data.videoUrl)}`;
+                    setStreamUrl(url);
+                    if (videoRef.current) videoRef.current.src = url;
+                }
                 initRoom(animeId, gateId, animeName);
-            })
-            .catch(() => setVideoError("Failed to load video."))
-            .finally(() => setVideoLoading(false));
-    }, [gateId]);
+            } catch (e) {
+                setVideoError("Failed to load video.");
+            } finally {
+                setVideoLoading(false);
+            }
+        };
+
+        loadVideo();
+
+        return () => { hlsRef.current?.destroy(); hlsRef.current = null; };
+    }, [gateId, source, origin]);
 
     // ── Sync video events → Firestore ─────────────────────────────────────────
     const onPlay = useCallback(() => {
@@ -215,7 +264,7 @@ export default function WatchRoom() {
                             <video
                                 ref={videoRef}
                                 className="wr-video"
-                                src={streamUrl}
+                                src={source === "ah" ? streamUrl : undefined}
                                 controls
                                 playsInline
                                 onPlay={onPlay}
@@ -282,15 +331,60 @@ export default function WatchRoom() {
                             </div>
                         )}
 
+                        {/* Sticker picker */}
+                        {showStickers && (
+                            <div className="wr-sticker-picker">
+                                {/* Character tabs */}
+                                <div className="wr-sticker-tabs">
+                                    {STICKER_GROUPS.map(g => (
+                                        <button
+                                            key={g.character}
+                                            className={`wr-sticker-tab${stickerChar === g.character ? " wr-sticker-tab-active" : ""}`}
+                                            onClick={() => setStickerChar(g.character)}
+                                        >
+                                            {g.character}
+                                        </button>
+                                    ))}
+                                </div>
+                                {/* Sticker grid */}
+                                <div className="wr-sticker-grid">
+                                    {GENSHIN_STICKERS
+                                        .filter(s => s.character === stickerChar)
+                                        .map(s => (
+                                            <img
+                                                key={s.id}
+                                                src={s.url}
+                                                alt={s.label}
+                                                title={s.label}
+                                                className="wr-sticker-img"
+                                                onClick={() => {
+                                                    sendMessage(s.url, "sticker");
+                                                    setShowStickers(false);
+                                                }}
+                                            />
+                                        ))
+                                    }
+                                </div>
+                            </div>
+                        )}
+
                         {/* Input bar */}
                         <form className="wr-chat-form" onSubmit={handleSend}>
                             <button
                                 type="button"
                                 className="wr-emoji-btn"
-                                onClick={() => setShowEmoji(o => !o)}
+                                onClick={() => { setShowEmoji(o => !o); setShowStickers(false); }}
                                 title="Emoji"
                             >
                                 😊
+                            </button>
+                            <button
+                                type="button"
+                                className="wr-emoji-btn"
+                                onClick={() => { setShowStickers(o => !o); setShowEmoji(false); }}
+                                title="Genshin stickers"
+                            >
+                                ✨
                             </button>
                             <input
                                 className="wr-chat-input"

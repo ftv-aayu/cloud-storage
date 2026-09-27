@@ -491,3 +491,77 @@
 
     .wr-tiles { display: none; }
 }
+
+/* ── Sticker picker ── */
+
+.wr-sticker-picker {
+    position: absolute;
+    bottom: 56px;
+    left: 0;
+    right: 0;
+    background: #1a1a1a;
+    border-top: 1px solid #2a2a2a;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    max-height: 300px;
+}
+
+.wr-sticker-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    overflow-x: auto;
+    flex-shrink: 0;
+    border-bottom: 1px solid #2a2a2a;
+    scrollbar-width: thin;
+    scrollbar-color: #333 transparent;
+}
+
+.wr-sticker-tab {
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid #333;
+    background: #111;
+    color: #aaa;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s;
+    flex-shrink: 0;
+}
+
+.wr-sticker-tab:hover { background: #222; color: #fff; }
+
+.wr-sticker-tab-active {
+    background: var(--primary, #3b99ff);
+    border-color: var(--primary, #3b99ff);
+    color: #fff;
+}
+
+.wr-sticker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 6px;
+    padding: 8px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.wr-sticker-img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: contain;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 4px;
+    background: #111;
+    border: 1px solid transparent;
+    transition: background 0.1s, border-color 0.1s, transform 0.1s;
+}
+
+.wr-sticker-img:hover {
+    background: #222;
+    border-color: #3b99ff;
+    transform: scale(1.1);
+}

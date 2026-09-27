@@ -8,6 +8,8 @@ import Anime from "../pages/Anime";
 import AnimeDetail from "../pages/AnimeDetail";
 import AnimePlayer from "../pages/AnimePlayer";
 import WatchRoom from "../pages/WatchRoom";
+import AnimeDetailAP from "../pages/AnimeDetailAP";
+import AnimePlayerAP from "../pages/AnimePlayerAP";
 
 function Router() {
     return (
@@ -45,6 +47,14 @@ function Router() {
                 <Route
                     path="/watch/:roomId"
                     element={<WatchRoom />}
+                />
+                <Route
+                    path="/animep/:link"
+                    element={<AnimeDetailAP />}
+                />
+                <Route
+                    path="/animep/:link/ep/:uid"
+                    element={<AnimePlayerAP />}
                 />
             </Routes>
         </BrowserRouter>
