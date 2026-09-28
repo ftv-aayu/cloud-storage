@@ -92,4 +92,11 @@
     <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
   </symbol>
 
+  <!-- Sticker: square with peeled bottom-right corner -->
+  <symbol id="icon-sticker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 10V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/>
+    <path d="M14 22h-.5A5.5 5.5 0 0 1 8 16.5V14h2.5A5.5 5.5 0 0 1 16 19.5V22h-2z"/>
+    <path d="M16 22v-2.5A5.5 5.5 0 0 0 10.5 14H8"/>
+  </symbol>
+
 </svg>

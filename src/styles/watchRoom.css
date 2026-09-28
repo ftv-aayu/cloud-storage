@@ -204,13 +204,37 @@
 /* ── Chat panel ── */
 
 .wr-chat {
-    width: 300px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     background: #111;
     border-left: 1px solid #222;
     position: relative;
+    min-width: 180px;
+    max-width: 600px;
+}
+
+/* Drag handle between video and chat */
+.wr-resize-handle {
+    width: 5px;
+    flex-shrink: 0;
+    background: #1a1a1a;
+    border-left: 1px solid #222;
+    border-right: 1px solid #222;
+    cursor: col-resize;
+    position: relative;
+    transition: background 0.15s;
+    z-index: 10;
+}
+.wr-resize-handle:hover,
+.wr-resize-handle:active {
+    background: #3b99ff;
+}
+/* Wider invisible hit area so it's easy to grab */
+.wr-resize-handle::after {
+    content: "";
+    position: absolute;
+    inset: 0 -4px;
 }
 
 /* Chat header with close button */
@@ -383,13 +407,17 @@
     background: none;
     border: none;
     font-size: 20px;
+    color: #aaa;
     cursor: pointer;
     padding: 4px;
     border-radius: 6px;
-    transition: background 0.15s;
+    transition: background 0.15s, color 0.15s;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.wr-emoji-btn:hover { background: #222; }
+.wr-emoji-btn:hover { background: #222; color: #fff; }
 
 .wr-chat-input {
     flex: 1;
@@ -426,11 +454,13 @@
     .wr-body { flex-direction: column; }
 
     .wr-chat {
-        width: 100%;
+        width: 100% !important;
         height: 240px;
         border-left: none;
         border-top: 1px solid #222;
     }
+
+    .wr-resize-handle { display: none; }
 
     .wr-tiles { display: none; }
 
@@ -483,11 +513,13 @@
         right: 0;
         top: 0;
         bottom: 0;
-        width: 260px;
+        width: 260px !important;
         z-index: 150;
         border-left: 1px solid #333;
         box-shadow: -4px 0 20px rgba(0,0,0,0.6);
     }
+
+    .wr-resize-handle { display: none; }
 
     .wr-tiles { display: none; }
 }

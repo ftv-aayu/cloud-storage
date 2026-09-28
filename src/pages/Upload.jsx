@@ -6,32 +6,37 @@ import "../styles/upload.css";
 import storageService from "../services/storageService";
 import folderService from "../services/folderService";
 
+// Recursively fetch all folders and return a flat list with indent depth
+async function loadAllFolders(parentId = null, depth = 0, result = []) {
+    const folders = await folderService.getFolders(parentId);
+    for (const f of folders) {
+        result.push({ ...f, depth });
+        await loadAllFolders(f.id, depth + 1, result);
+    }
+    return result;
+}
+
 function Upload() {
-    const [folder, setFolder] = useState(null);
     const resumeInput = useRef();
     const [searchParams] = useSearchParams();
+    const urlFolderId = searchParams.get("folder");
 
-    const folderId = searchParams.get("folder");
+    // Selected destination folder (null = root)
+    const [selectedFolderId, setSelectedFolderId] = useState(urlFolderId ?? null);
+    const [allFolders, setAllFolders]             = useState([]);
+    const [foldersLoading, setFoldersLoading]     = useState(true);
+
     const [resumeSession, setResumeSession] = useState(null);
-
     const [sessions, setSessions] = useState([]);
-    useEffect(() => {
 
+    useEffect(() => {
         loadSessions();
-
+        // Load full folder tree for the dropdown
+        loadAllFolders().then(list => {
+            setAllFolders(list);
+            setFoldersLoading(false);
+        });
     }, []);
-
-    useEffect(() => {
-
-        if (!folderId) return;
-
-        folderService
-
-            .getFolder(folderId)
-
-            .then(setFolder);
-
-    }, [folderId]);
 
     const loadSessions = async () => {
 
@@ -55,9 +60,8 @@ function Upload() {
 
     const handleFiles = (files) => {
         const fileArray = Array.from(files);
-
         if (fileArray.length > 0) {
-            addToQueue(fileArray, folderId);
+            addToQueue(fileArray, selectedFolderId);
         }
     };
     const chooseFiles = (e) => {
@@ -150,33 +154,35 @@ function Upload() {
                     }
                 </div>
             }
-            {
-                folderId &&
+            {/* Folder destination selector */}
+            <div className="upload-folder-selector">
+                <label className="upload-folder-label" htmlFor="upload-folder-select">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Upload destination
+                </label>
+                <select
+                    id="upload-folder-select"
+                    className="upload-folder-select"
+                    value={selectedFolderId ?? ""}
+                    onChange={e => setSelectedFolderId(e.target.value || null)}
+                    disabled={foldersLoading}
+                >
+                    <option value="">/ Root</option>
+                    {allFolders.map(f => (
+                        <option key={f.id} value={f.id}>
+                            {"\u00A0\u00A0\u00A0\u00A0".repeat(f.depth)}└ {f.name}
+                        </option>
+                    ))}
+                </select>
+            </div>
 
-                <p className="uploadLocation">
-
-                    Uploading to folder
-
-                    <br />
-
-                    <b>
-                        {
-                            folder ? folder.name : folderId
-                        }
-                    </b>
-
-                </p>
-
-            }
             <div
                 className="dropZone"
-                onDragOver={
-                    e => e.preventDefault()
-                }
+                onDragOver={e => e.preventDefault()}
                 onDrop={dropFiles}
-                onClick={
-                    () => fileInput.current.click()
-                }
+                onClick={() => fileInput.current.click()}
             >
                 <h2>Drag & Drop Files</h2>
                 <p>or click to select</p>

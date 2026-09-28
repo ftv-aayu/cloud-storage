@@ -108,3 +108,44 @@
     color: white; 
     text-align: center;
 }
+
+/* ── Folder destination selector ── */
+
+.upload-folder-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.upload-folder-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.upload-folder-select {
+    width: 240px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-input);
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.upload-folder-select:focus {
+    border-color: var(--primary);
+}
+
+.upload-folder-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

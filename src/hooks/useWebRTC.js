@@ -189,7 +189,6 @@ export function useWebRTC(roomId, myId) {
             snap.docs.forEach(d => {
                 const peerId = d.id;
                 if (peerId === myId) return;
-                if (d.data().left) return;
                 if (peersRef.current[peerId]) return;
                 // Initiate if my ID is lexicographically smaller
                 const initiate = myId < peerId;

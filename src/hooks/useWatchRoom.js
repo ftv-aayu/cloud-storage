@@ -50,19 +50,26 @@ export function useWatchRoom(roomId, videoRef) {
 
     // ── Init room ──────────────────────────────────────────────────────────────
     useEffect(() => {
-        // Register self in peers list
         const myPeerDoc = doc(db, "rooms", roomId, "peers", myId.current);
+
+        // Register self
         setDoc(myPeerDoc, { joined: Date.now(), id: myId.current }, { merge: true });
 
-        // Stamp room creation time (only sets if not already set)
+        // Stamp room creation time
         setDoc(doc(db, "rooms", roomId), { createdAt: Date.now() }, { merge: true });
 
-        // Best-effort cleanup of rooms older than 24h
         pruneOldRooms();
 
+        // Remove self on page close/refresh (sync via navigator.sendBeacon isn't
+        // available for Firestore, so we use deleteDoc which is fast)
+        const cleanup = () => deleteDoc(myPeerDoc).catch(() => {});
+
+        // beforeunload fires on tab close / navigation — best effort
+        window.addEventListener("beforeunload", cleanup);
+
         return () => {
-            // Remove self on unmount
-            setDoc(myPeerDoc, { left: Date.now() }, { merge: true });
+            window.removeEventListener("beforeunload", cleanup);
+            cleanup();
         };
     }, [roomId]);
 
@@ -98,7 +105,8 @@ export function useWatchRoom(roomId, videoRef) {
     // ── Listen to peers ────────────────────────────────────────────────────────
     useEffect(() => {
         const unsub = onSnapshot(peersRef, (snap) => {
-            setPeers(snap.docs.map(d => d.data()).filter(p => !p.left));
+            // Docs are deleted when a peer leaves, so just count all docs
+            setPeers(snap.docs.map(d => d.data()));
         });
         return unsub;
     }, [roomId]);

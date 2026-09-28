@@ -83,11 +83,13 @@ export default function WatchRoom() {
     const animeId   = searchParams.get("animeId");
     const gateId    = searchParams.get("gateId");
     const animeName = searchParams.get("name") || "Anime";
-    const source    = searchParams.get("source") || "ah"; // "ah" or "ap"
+    const source    = searchParams.get("source") || "ah"; // "ah", "ap", or "ak"
     const origin    = searchParams.get("origin") || "";
+    const embedUrl  = searchParams.get("embedUrl") || ""; // for source=ak
 
     const videoRef = useRef(null);
     const hlsRef   = useRef(null);
+    const iframeRef = useRef(null); // for source=ak iframe sync
 
     const {
         myId, messages, roomState, peers,
@@ -114,6 +116,33 @@ export default function WatchRoom() {
     const [copied, setCopied]           = useState(false);
     const messagesEndRef                = useRef(null);
 
+    // Chat resize
+    const [chatWidth, setChatWidth]     = useState(300);
+
+    function onDragStart(e) {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startW = chatWidth;
+
+        function onMove(ev) {
+            // dragging left → wider chat, right → narrower
+            const delta = startX - ev.clientX;
+            const next  = Math.min(600, Math.max(180, startW + delta));
+            setChatWidth(next);
+        }
+        function onUp() {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            document.body.style.cursor     = "";
+            document.body.style.userSelect = "";
+        }
+
+        document.body.style.cursor     = "col-resize";
+        document.body.style.userSelect = "none";
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+    }
+
     // ── Load video ────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!gateId) return;
@@ -122,33 +151,32 @@ export default function WatchRoom() {
 
         const loadVideo = async () => {
             try {
-                if (source === "ap") {
-                    // AnimParadise: get streamLink → HLS
+                if (source === "ak") {
+                    // Anikoto: embed URL is passed directly as a param
+                    if (!embedUrl) throw new Error("No embed URL");
+                    setStreamUrl(embedUrl);
+                    initRoom(animeId, gateId, animeName);
+                } else if (source === "ap") {
+                    // AnimParadise (legacy — kept for existing rooms)
                     const data = await fetch(
                         `${PROXY}/ap/stream?uid=${encodeURIComponent(gateId)}&origin=${encodeURIComponent(origin)}`
                     ).then(r => r.ok ? r.json() : Promise.reject(r.status));
 
                     if (!data.streamLink) throw new Error("No stream link");
-
                     const m3u8Url = `https://stream.animeparadise.moe/m3u8?url=${encodeURIComponent(data.streamLink)}`;
-
-                    // Attach HLS.js
                     if (hlsRef.current) hlsRef.current.destroy();
                     if (Hls.isSupported()) {
                         const hls = new Hls({ enableWorker: true });
                         hls.loadSource(m3u8Url);
                         hls.attachMedia(videoRef.current);
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                            videoRef.current?.play().catch(() => {});
-                        });
-                        hls.on(Hls.Events.ERROR, (_e, d) => {
-                            if (d.fatal) setVideoError("Stream error.");
-                        });
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => { videoRef.current?.play().catch(() => {}); });
+                        hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) setVideoError("Stream error."); });
                         hlsRef.current = hls;
                     } else if (videoRef.current?.canPlayType("application/vnd.apple.mpegurl")) {
                         videoRef.current.src = m3u8Url;
                     }
-                    setStreamUrl(m3u8Url); // for sync tracking
+                    setStreamUrl(m3u8Url);
+                    initRoom(animeId, gateId, animeName);
                 } else {
                     // AnimeHeaven: mp4 via proxy stream
                     const data = await fetch(
@@ -159,8 +187,8 @@ export default function WatchRoom() {
                     const url = `${PROXY}/stream?url=${encodeURIComponent(data.videoUrl)}`;
                     setStreamUrl(url);
                     if (videoRef.current) videoRef.current.src = url;
+                    initRoom(animeId, gateId, animeName);
                 }
-                initRoom(animeId, gateId, animeName);
             } catch (e) {
                 setVideoError("Failed to load video.");
             } finally {
@@ -188,6 +216,54 @@ export default function WatchRoom() {
         if (isSyncing.current) return;
         pushState(!videoRef.current?.paused, videoRef.current?.currentTime ?? 0);
     }, [pushState, isSyncing]);
+
+    // ── AK iframe sync ────────────────────────────────────────────────────────
+    // Poll current time from megaplay iframe every 5s and push to Firestore.
+    // When roomState changes from another user, seek our iframe to match.
+    useEffect(() => {
+        if (source !== "ak" || !streamUrl) return;
+
+        // Listen for CURRENT_TIME messages from the iframe
+        function onMessage(e) {
+            try {
+                const msg = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+                if (msg?.event === "CURRENT_TIME" && !isSyncing.current) {
+                    pushState(true, msg.time ?? 0);
+                }
+            } catch {}
+        }
+        window.addEventListener("message", onMessage);
+
+        // Poll GET_TIME every 5s to push current position
+        const poll = setInterval(() => {
+            iframeRef.current?.contentWindow?.postMessage({ cmd: "GET_TIME" }, "*");
+        }, 5000);
+
+        return () => {
+            window.removeEventListener("message", onMessage);
+            clearInterval(poll);
+        };
+    }, [source, streamUrl, pushState, isSyncing]);
+
+    // Apply roomState changes to iframe (seek + play/pause when another user acts)
+    const prevIsPlaying = useRef(null);
+    useEffect(() => {
+        if (source !== "ak" || !roomState || !iframeRef.current) return;
+        if (roomState.updatedBy === myId) return;
+        isSyncing.current = true;
+
+        const win = iframeRef.current.contentWindow;
+        // Seek to synced position
+        win?.postMessage({ cmd: "SEEK", value: roomState.currentTime }, "*");
+
+        // Sync play/pause if state changed
+        if (prevIsPlaying.current !== null && prevIsPlaying.current !== roomState.isPlaying) {
+            win?.postMessage({ cmd: "PLAY_TOGGLE" }, "*");
+        }
+        prevIsPlaying.current = roomState.isPlaying;
+
+        setTimeout(() => { isSyncing.current = false; }, 500);
+    }, [roomState, source, myId, isSyncing]);
 
     // ── Scroll chat to bottom ─────────────────────────────────────────────────
     useEffect(() => {
@@ -261,22 +337,52 @@ export default function WatchRoom() {
                             </div>
                         )}
                         {streamUrl && (
-                            <video
-                                ref={videoRef}
-                                className="wr-video"
-                                src={source === "ah" ? streamUrl : undefined}
-                                controls
-                                playsInline
-                                onPlay={onPlay}
-                                onPause={onPause}
-                                onSeeked={onSeeked}
-                                onError={() => setVideoError("Video failed to play.")}
-                            />
+                            source === "ak" ? (
+                                <iframe
+                                    ref={iframeRef}
+                                    className="wr-video"
+                                    src={streamUrl}
+                                    allowFullScreen
+                                    allow="autoplay; fullscreen"
+                                    referrerPolicy="no-referrer"
+                                    title="Watch Together"
+                                    style={{ border: "none" }}
+                                />
+                            ) : (
+                                <video
+                                    ref={videoRef}
+                                    className="wr-video"
+                                    src={source === "ah" ? streamUrl : undefined}
+                                    controls
+                                    playsInline
+                                    onPlay={onPlay}
+                                    onPause={onPause}
+                                    onSeeked={onSeeked}
+                                    onError={() => setVideoError("Video failed to play.")}
+                                />
+                            )
                         )}
                     </div>
 
                     {/* ── Voice / camera controls ── */}
                     <div className="wr-media-bar">
+                        {/* Synced play/pause for AK iframe source */}
+                        {source === "ak" && streamUrl && (
+                            <button
+                                className="wr-media-btn"
+                                title="Sync play/pause for everyone"
+                                onClick={() => {
+                                    // Toggle play on our iframe
+                                    iframeRef.current?.contentWindow?.postMessage({ cmd: "PLAY_TOGGLE" }, "*");
+                                    // Push current time so others can sync
+                                    iframeRef.current?.contentWindow?.postMessage({ cmd: "GET_TIME" }, "*");
+                                    // Also push state immediately for the other person
+                                    pushState(!roomState?.isPlaying, roomState?.currentTime ?? 0);
+                                }}
+                            >
+                                ⏯ Sync Play/Pause
+                            </button>
+                        )}
                         <button
                             className={`wr-media-btn ${voiceOn ? "wr-media-on" : ""}`}
                             onClick={toggleMic}
@@ -302,7 +408,14 @@ export default function WatchRoom() {
 
                 {/* ── Chat panel ── */}
                 {chatOpen && (
-                    <div className="wr-chat">
+                    <>
+                        {/* Drag handle */}
+                        <div
+                            className="wr-resize-handle"
+                            onPointerDown={onDragStart}
+                            title="Drag to resize chat"
+                        />
+                        <div className="wr-chat" style={{ width: chatWidth }}>
                         {/* Chat header with close button — always visible */}
                         <div className="wr-chat-header">
                             <span>💬 Chat</span>
@@ -384,7 +497,11 @@ export default function WatchRoom() {
                                 onClick={() => { setShowStickers(o => !o); setShowEmoji(false); }}
                                 title="Genshin stickers"
                             >
-                                ✨
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M20 10V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/>
+                                    <path d="M14 22v-2.5A5.5 5.5 0 0 0 8.5 14H6"/>
+                                    <path d="M6 14h2.5A5.5 5.5 0 0 1 14 19.5V22"/>
+                                </svg>
                             </button>
                             <input
                                 className="wr-chat-input"
@@ -402,6 +519,7 @@ export default function WatchRoom() {
                             </button>
                         </form>
                     </div>
+                    </>
                 )}
             </div>
 

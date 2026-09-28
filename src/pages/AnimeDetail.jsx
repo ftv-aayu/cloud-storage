@@ -193,7 +193,7 @@ export default function AnimeDetail() {
 
                 // Search AP for the same title to find a cross-link
                 if (parsed.title) {
-                    fetch(`${PROXY}/ap/search?q=${encodeURIComponent(parsed.title)}`)
+                    fetch(`${PROXY}/ak/search?q=${encodeURIComponent(parsed.title)}`)
                         .then(r => r.ok ? r.json() : null)
                         .then(apData => {
                             const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -232,7 +232,7 @@ export default function AnimeDetail() {
             {/* Cross-link to alternative source — shown when available */}
             {apLink && (
                 <Link
-                    to={`/animep/${apLink}`}
+                    to={`/animek/${apLink}`}
                     style={{
                         display: "inline-flex", alignItems: "center", gap: 6,
                         margin: "8px 0 4px", padding: "5px 12px",

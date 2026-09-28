@@ -1,0 +1,59 @@
+.iframe-player {
+    width: 100%;
+    flex: 1;
+    border: none;
+    background: #000;
+    display: block;
+    min-height: 240px;
+}
+
+/* ── Server switcher buttons ── */
+.server-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #1a1a1a;
+    color: #aaa;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+}
+.server-btn:hover { background: #2a2a2a; color: #fff; }
+.server-btn-active {
+    background: #1a2a4a;
+    border-color: #3b99ff;
+    color: #3b99ff;
+    font-weight: 600;
+}
+
+/* ── Mobile fixes ── */
+@media (max-width: 480px) {
+    .player-topbar {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 6px 10px;
+        gap: 6px;
+    }
+
+    .player-topbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        width: 100%;
+    }
+
+    .server-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+
+    .player-watch-together {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    .iframe-player {
+        min-height: 200px;
+    }
+}

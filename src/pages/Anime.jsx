@@ -27,58 +27,48 @@ async function searchAH(query) {
     }
 }
 
-// ── AnimParadise search ───────────────────────────────────────────────────────
-async function searchAP(query) {
+// ── Anikoto search ────────────────────────────────────────────────────────────
+async function searchAK(query) {
     try {
-        const res = await fetch(`${PROXY}/ap/search?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`${PROXY}/ak/search?q=${encodeURIComponent(query)}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return (data?.data ?? []).map((item) => ({
-            id:     item.link,         // AP uses slug as id
-            apId:   item._id,
-            name:   item.alternativeTitle?.english || item.title,
-            imgSrc: item.posterImage?.medium || item.posterImage?.large || "",
-            source: "ap",              // AnimParadise
-        }));
+        const html = data?.result?.html ?? "";
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        return [...doc.querySelectorAll("a.item")].map(a => {
+            const href = a.getAttribute("href") ?? "";
+            // href = https://anikototv.to/watch/bleach-sennen-...
+            const slug = href.split("/watch/")[1]?.split("?")[0] ?? "";
+            const name = a.querySelector(".name")?.textContent.trim() ?? "Unknown";
+            const img  = a.querySelector("img")?.getAttribute("src") ?? "";
+            return { id: slug, name, imgSrc: img, source: "ak" };
+        });
     } catch {
         return [];
     }
 }
 
-// ── Merge: AH primary, AP fills gaps ─────────────────────────────────────────
-function mergeResults(ahResults, apResults) {
-    // Normalise title for fuzzy dedup: lowercase, strip punctuation
+// ── Merge: AH primary, AK fills gaps ─────────────────────────────────────────
+function mergeResults(ahResults, akResults) {
     const norm = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
-
     const ahNames = new Set(ahResults.map(r => norm(r.name)));
-
-    // AP results that have no close match in AH
-    const apOnly = apResults.filter(r => !ahNames.has(norm(r.name)));
-
-    return [...ahResults, ...apOnly];
+    const akOnly = akResults.filter(r => !ahNames.has(norm(r.name)));
+    return [...ahResults, ...akOnly];
 }
 
 // ── Cards ─────────────────────────────────────────────────────────────────────
-function AnimeCard({ id, name, imgSrc, source, apId }) {
-    // AH cards → /anime/:id (existing flow)
-    // AP-only cards → /animep/:link
-    const to = source === "ah" ? `/anime/${id}` : `/animep/${id}`;
-
+function AnimeCard({ id, name, imgSrc, source }) {
+    const to = source === "ah" ? `/anime/${id}` : `/animek/${id}`;
     return (
         <Link className="anime-card" to={to} title={name}>
             <div className="anime-card-thumb">
-                <img
-                    src={imgSrc}
-                    alt={name}
-                    loading="lazy"
+                <img src={imgSrc} alt={name} loading="lazy"
                     onError={(e) => {
                         e.currentTarget.style.display = "none";
                         e.currentTarget.parentElement.classList.add("anime-card-no-img-bg");
                     }}
                 />
-                {source === "ap" && (
-                    <span className="anime-card-badge">AP</span>
-                )}
+                {source === "ak" && <span className="anime-card-badge">AK</span>}
             </div>
             <p className="anime-card-title">{name}</p>
         </Link>
@@ -104,12 +94,11 @@ function Anime() {
 
         try {
             // Both sources in parallel — AH primary, AP fills gaps
-            const [ahResults, apResults] = await Promise.all([
+            const [ahResults, akResults] = await Promise.all([
                 searchAH(q),
-                searchAP(q),
+                searchAK(q),
             ]);
-
-            const merged = mergeResults(ahResults, apResults);
+            const merged = mergeResults(ahResults, akResults);
 
             if (merged.length === 0) {
                 setError(null); // show empty state below
